@@ -1351,10 +1351,10 @@ $("nameForm").addEventListener("submit", (e) => {
   askNotificationPermission(); // one-time: allow browser reminders even in background
 
   $("selfieFor").textContent =
-    `Smile for the camera, ${emp.name} (${emp.id}) — your photo is attached to this record.`;
+    `${emp.name} (${emp.id}) — choose a clear photo of your face; it's attached to this record.`;
   resetCamera();
   goTo(2);
-  startCamera(); // auto-open the camera instead of making them tap "Start"
+  /* employees UPLOAD a photo — the camera is not used in the employee flow */
 });
 
 /* ============ STEP 2 — SELFIE ============ */
@@ -1368,13 +1368,13 @@ function resetCamera() {
   $("camLive").classList.add("hidden");
   $("camShot").classList.add("hidden");
   $("camPlaceholder").classList.remove("hidden");
-  $("camMsg").textContent = "Camera will appear here";
+  $("camMsg").textContent = "Choose a clear photo of your face";
   $("btnCapture").disabled = true;
-  $("btnCapture").classList.remove("hidden");
+  $("btnCapture").classList.add("hidden"); // upload-only flow — never shown
   $("btnRetake").classList.add("hidden");
   $("btnNext2").classList.add("hidden");
   $("btnSelfEnroll").classList.add("hidden");
-  $("startCam").classList.remove("hidden"); // BUGFIX: was left hidden after the first selfie — second visit had no way to start the camera
+  $("startCam").classList.add("hidden"); // camera UI retired for employees
 }
 
 function stopStream() {
@@ -1532,7 +1532,7 @@ function flagMismatchUnknown() {
 
 $("btnRetake").addEventListener("click", () => {
   resetCamera();
-  startCamera();
+  $("filePick").click(); // no camera — go straight back to the photo picker
 });
 
 $("btnNext2").addEventListener("click", () => {
@@ -1704,7 +1704,6 @@ $("btnCheckOut").addEventListener("click", () => punch("out"));
 $("btnBack2").addEventListener("click", () => {
   resetCamera();
   goTo(2);
-  startCamera();
 });
 
 $("btnDone").addEventListener("click", () => {

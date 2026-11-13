@@ -199,7 +199,7 @@
 
     <!-- ============ STEP 2: SELFIE ============ -->
     <section id="step2" class="card step-panel">
-      <h2>Capture your selfie</h2>
+      <h2>Upload your selfie</h2>
       <p class="hint" id="selfieFor"></p>
 
       <div class="camera-area">
@@ -212,25 +212,27 @@
         </div>
         <div id="camPlaceholder" class="cam-frame placeholder">
           <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/>
-            <circle cx="12" cy="12" r="3.5"/>
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <circle cx="9" cy="9" r="2"/>
+            <path d="M21 15l-5-5L5 21"/>
           </svg>
-          <p id="camMsg">Camera will appear here</p>
-          <button id="startCam" class="btn">📷 Start camera</button>
+          <p id="camMsg">Choose a clear photo of your face</p>
+          <label for="filePick" class="btn primary">🖼 Choose photo</label>
+          <button id="startCam" class="btn hidden" type="button" tabindex="-1">📷 Start camera</button>
         </div>
       </div>
 
       <div class="row">
         <button id="btnBack1" class="btn ghost">← Back</button>
-        <button id="btnCapture" class="btn primary" disabled>📸 Capture</button>
-        <button id="btnRetake" class="btn ghost hidden">🔄 Retake</button>
+        <button id="btnCapture" class="btn primary hidden" type="button" tabindex="-1">📸 Capture</button>
+        <button id="btnRetake" class="btn ghost hidden">🔄 Choose another photo</button>
         <button id="btnSelfEnroll" class="btn primary hidden">💾 Enroll my face</button>
         <button id="btnPush2" class="btn primary hidden">🔔 Turn on reminders</button>
         <button id="btnNext2" class="btn primary hidden">Continue →</button>
       </div>
       <p id="faceStatus" class="face-status"></p>
-      <p class="fallback-note">No camera? <label for="filePick" class="link">Upload a photo instead</label>
-        <input id="filePick" type="file" accept="image/*" capture="user" hidden /></p>
+      <p class="fallback-note">No photo handy? <label for="filePick" class="link">Pick one from your gallery instead</label>
+        <input id="filePick" type="file" accept="image/*" hidden /></p>
     </section>
 
     <!-- ============ STEP 3: CHECK IN / OUT ============ -->
@@ -331,6 +333,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
   <script src="config.js?v=2"></script>
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>
