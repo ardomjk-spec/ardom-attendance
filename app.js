@@ -1443,17 +1443,30 @@ async function startCamera() {
   const token = ++camStartToken;
   stopStream();
   $("camMsg").textContent = "⏳ Starting camera…";
+
+  /* hard pre-checks with plain-language reasons */
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $("camMsg").textContent = window.isSecureContext
+      ? "📷 This browser can't open a camera — use “🖼 Upload photo” below."
+      : "📷 Camera needs a secure (https) connection — open the site via its https address, or use “🖼 Upload photo”.";
+    return;
+  }
+
   const want = { video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } }, audio: false };
   try {
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(want);
-    } catch (firstErr) {
-      // the camera may still be releasing from the previous session — brief wait, then a plain retry
-      await new Promise((r) => setTimeout(r, 500));
-      if (token !== camStartToken) return;
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    let stream = null, lastErr = null;
+    /* the camera may still be releasing from a previous session — up to 3 tries */
+    for (let attempt = 0; attempt < 3 && !stream; attempt++) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(attempt === 0 ? want : { video: true, audio: false });
+      } catch (e) {
+        lastErr = e;
+        if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) break; // permission — retrying won't help
+        await new Promise((r) => setTimeout(r, attempt === 0 ? 800 : 1500)); // busy camera — wait and retry
+        if (token !== camStartToken) return;
+      }
     }
+    if (!stream) throw lastErr || new Error("camera not started");
     if (token !== camStartToken) { stream.getTracks().forEach((t) => t.stop()); return; }
     state.stream = stream;
     video.srcObject = stream;
@@ -1462,8 +1475,18 @@ async function startCamera() {
     $("btnCapture").disabled = false;
     $("btnCapture").classList.remove("hidden"); // BUGFIX: was left hidden after the upload-only change — camera opened with no way to capture
   } catch (err) {
-    $("camMsg").textContent =
-      "Camera unavailable — upload a photo below instead, or tap “📷 Start camera” to retry.";
+    const n = (err && err.name) || "";
+    console.warn("Camera error:", err);
+    if (n === "NotAllowedError" || n === "SecurityError") {
+      $("camMsg").textContent =
+        "🔒 Camera permission is blocked. Tap the 🔒 / ⓘ icon next to the address → Permissions → Camera → ALLOW, then tap “📷 Use camera” again.";
+    } else if (n === "NotFoundError" || n === "OverconstrainedError") {
+      $("camMsg").textContent = "📷 No usable camera found on this device — use “🖼 Upload photo” below.";
+    } else if (n === "NotReadableError" || n === "AbortError") {
+      $("camMsg").textContent = "📷 The camera seems busy — close other apps/tabs using it (WhatsApp, Camera, Instagram…), then tap “📷 Use camera” again.";
+    } else {
+      $("camMsg").textContent = "📷 Camera could not start" + (n ? " (" + n + ")" : "") + " — tap “📷 Use camera” to retry, or use “🖼 Upload photo”.";
+    }
   }
 }
 
