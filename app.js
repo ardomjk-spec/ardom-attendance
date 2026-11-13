@@ -3148,9 +3148,15 @@ async function seedEmployeesIfEmpty() {
   try {
     const snap = await db.ref("employees").get();
     if (snap.exists()) return;
-    const obj = {};
-    BUILTIN_EMPLOYEES.forEach((e) => { obj[e.id] = { id: e.id, name: e.name, active: true }; });
-    await db.ref("employees").set(obj);
+    const updates = {};
+    BUILTIN_EMPLOYEES.forEach((e) => { updates[e.id] = { id: e.id, name: e.name, active: true }; });
+    /* child-by-child in small batches — the rules allow per-employee writes
+       (a single bulk set on the parent would be denied) */
+    const ids = Object.keys(updates);
+    for (let i = 0; i < ids.length; i += 25) {
+      await Promise.all(ids.slice(i, i + 25).map((id) => db.ref("employees/" + id).set(updates[id])));
+    }
+    $("empAdminMsg").textContent = "";
     showToast("Employee list saved to the database — future edits are instant");
   } catch (e) {
     $("empAdminMsg").textContent = "⚠ Could not save the roster — publish the updated firebase.rules.json (see the rules file).";
