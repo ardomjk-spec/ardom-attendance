@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARDOM — Attendance</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23fff'/%3E%3Ccircle cx='32' cy='15' r='6' fill='%23f58220'/%3E%3Ccircle cx='32' cy='30' r='8' fill='%23f58220'/%3E%3Ccircle cx='17' cy='46' r='7' fill='%23f58220'/%3E%3Ccircle cx='47' cy='46' r='7' fill='%23f58220'/%3E%3C/svg%3E" />
+  <!-- installable (iOS Home Screen → standalone, Android "Add to Home Screen") -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="ARDOM Attendance" />
+  <meta name="theme-color" content="#f58220" />
+  <link rel="stylesheet" href="styles.css?v=10" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <!-- ARDOM logo: orange dot "A" -->
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <text x="49" y="14" font-size="9" fill="#3a4550" font-family="Segoe UI, sans-serif">®</text>
+        <circle cx="32" cy="15" r="6"  fill="#f58220"/>
+        <circle cx="32" cy="30" r="8"  fill="#f58220"/>
+        <circle cx="17" cy="46" r="7"  fill="#f58220"/>
+        <circle cx="47" cy="46" r="7"  fill="#f58220"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">ARDOM</span>
+        <span class="brand-sub">Attendance</span>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <span id="syncChip" class="sync-chip local" title="Sync status">⚪ Local</span>
+      <button id="adminBtn" class="admin-btn">🔐 Admin</button>
+      <div id="clock" class="clock">--:--</div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- ============ ADMIN CONSOLE (admin only, tabbed) ============ -->
+    <section id="dash" class="card hidden">
+      <div class="records-head">
+        <h2>🛡️ Admin console</h2>
+      </div>
+
+      <nav id="adminTabs" class="admin-tabs">
+        <button class="atab active" data-tab="today" type="button">📊 Today</button>
+        <button class="atab" data-tab="sheet" type="button">🗓 Month sheet</button>
+        <button class="atab" data-tab="downloads" type="button">⬇ Downloads</button>
+        <button class="atab" data-tab="faces" type="button">📷 Faces &amp; tools</button>
+        <button class="atab" data-tab="profile" type="button">👤 Profile</button>
+      </nav>
+
+      <!-- ── TAB: TODAY — live dashboard ── -->
+      <div class="atabpane active" data-pane="today">
+        <p id="dashNote" class="hint"></p>
+        <div class="tiles">
+          <div class="tile"><span id="tRoster">—</span><small>Roster</small></div>
+          <div class="tile tile-leave"><span id="tLeave">—</span><small>On leave</small></div>
+          <div class="tile"><span id="tAbsent">—</span><small>Not yet in</small></div>
+          <div class="tile tile-in"><span id="tIn">—</span><small>Working now</small></div>
+          <div class="tile tile-out"><span id="tOut">—</span><small>Checked out</small></div>
+          <div class="tile tile-enroll" id="tileEnroll" title="Employees with a saved face — tap to open face enrollment"><span id="tEnrolled">—</span><small>Faces enrolled</small></div>
+          <div class="tile tile-in" id="tileEnIn" title="Of everyone with an enrolled face — how many checked in today"><span id="tEnIn">—</span><small>Enrolled · checked in</small></div>
+          <div class="tile tile-leave" id="tileEnNot" title="Enrolled employees who have NOT checked in yet today (includes on-leave)"><span id="tEnNot">—</span><small>Enrolled · not yet in</small></div>
+        </div>
+        <input id="dashSearch" type="text" placeholder="🔍 Filter by ID or name…" />
+        <p id="dashFilterNote" class="hint hidden"></p>
+        <div id="leavePanel" class="leave-panel"></div>
+        <div id="dashTableWrap" class="dash-table-wrap"><table id="dashTable" class="dash-table"><thead></thead><tbody></tbody></table></div>
+        <p class="hint">Punch cards for today are listed right below this table.</p>
+      </div>
+
+      <!-- ── TAB: MONTH SHEET — the P/CL/PL/UA code grid ── -->
+      <div class="atabpane" data-pane="sheet">
+        <div class="row">
+          <div class="month-pick">
+            <button id="monthPrev" class="btn tiny ghost" type="button" title="Previous month">◀</button>
+            <span id="monthLabel">—</span>
+            <button id="monthNext" class="btn tiny ghost" type="button" title="Next month">▶</button>
+          </div>
+        </div>
+        <div class="row">
+          <button id="btnSheetView" class="btn">🗓 Show code grid</button>
+          <button id="btnSheetXlsx" class="btn primary">⬇ Sheet XLSX (Excel)</button>
+        </div>
+        <p class="hint"><b>P</b> present · <b>CL/PL</b> leave · <b>UA</b> rejected leave = absent · <b>W/O</b> weekly off (Sunday) — hover any cell for punch times.</p>
+        <div id="sheetSection" class="sheet-section hidden"></div>
+      </div>
+
+      <!-- ── TAB: DOWNLOADS — every export in one place ── -->
+      <div class="atabpane" data-pane="downloads">
+        <h3>⬇ Day CSV — full roster of ONE day</h3>
+        <div class="row">
+          <input id="dayCsvDate" type="date" title="Pick the day to export" />
+          <button id="btnDayCsv" class="btn primary">⬇ Day CSV</button>
+        </div>
+        <p class="hint">Every employee with their true status for that day: <b>Working · Checked out · ON LEAVE (CL/PL) · Leave pending · Absent</b> — past days included.</p>
+
+        <h3>📅 Month CSV — summary + day-wise blocks</h3>
+        <div class="row">
+          <div class="month-pick">
+            <button id="dMonthPrev" class="btn tiny ghost" type="button" title="Previous month">◀</button>
+            <span id="dMonthLabel">—</span>
+            <button id="dMonthNext" class="btn tiny ghost" type="button" title="Next month">▶</button>
+          </div>
+          <button id="btnMonthCsv" class="btn primary">📅 Month CSV</button>
+        </div>
+        <p class="hint">One file: a <b>SUMMARY</b> (working days · CL · PL · pending · absent · total hours per employee) followed by <b>day-wise blocks</b> like "DAY 10-NOV-26 (Tuesday)".</p>
+
+        <h3>📊 Sheet XLSX — the office Excel format</h3>
+        <div class="row">
+          <button id="btnSheetXlsx2" class="btn primary">⬇ Sheet XLSX (Excel)</button>
+        </div>
+        <p class="hint">The same layout as your office workbook (<code>Attendance Sheet - JK Nov'26.xlsx</code>): dates, weekday row, employee codes and the full totals columns — built for the month picked above.</p>
+      </div>
+
+      <!-- ── TAB: FACES & TOOLS ── -->
+      <div class="atabpane" data-pane="faces">
+        <div class="row">
+          <button id="btnPunchEdit" class="btn">✏️ Edit a punch (any day)</button>
+        </div>
+        <p class="hint">Change any employee's check-in / check-out for any date — audit trail is written automatically.</p>
+
+        <!-- face enrollment (admin) -->
+        <div id="enroll" class="enroll-box">
+          <h3>📷 Face enrollment — verify once, forever after</h3>
+          <p class="hint">Pick the employee, capture their face once, save. From then on every check-in is auto-matched against this photo. Employees can also enroll themselves at their first punch — and one face belongs to exactly one ID (duplicates are blocked).</p>
+          <select id="enEmp"></select>
+          <div class="enroll-cam">
+            <div id="enCamLive" class="cam-frame live hidden">
+              <video id="enrollVideo" autoplay playsinline muted></video>
+              <div class="face-guide"></div>
+            </div>
+            <div id="enCamShot" class="cam-frame shot hidden">
+              <img id="enrollShot" alt="enrollment photo" />
+            </div>
+            <div id="enCamPh" class="cam-frame placeholder">
+              <p id="enMsg">Camera will appear here</p>
+              <button id="enStart" class="btn">📷 Start camera</button>
+            </div>
+          </div>
+          <p id="enStatus" class="hint"></p>
+          <div class="row">
+            <button id="enCapture" class="btn primary" disabled>📸 Capture</button>
+            <button id="enRetake" class="btn ghost hidden">🔄 Retake</button>
+            <button id="enSave" class="btn primary hidden">💾 Enroll face</button>
+            <button id="enDel" class="btn ghost">🗑 Remove</button>
+          </div>
+          <p class="fallback-note">No camera? <label for="enFile" class="link">Upload a photo instead</label>
+            <input id="enFile" type="file" accept="image/*" hidden /></p>
+          <div id="enrolledGrid" class="enrolled-grid"></div>
+        </div>
+      </div>
+
+      <!-- ── TAB: EMPLOYEE PROFILE — one employee, everything about them ── -->
+      <div class="atabpane" data-pane="profile">
+        <div class="row">
+          <select id="profEmp"></select>
+        </div>
+        <p class="hint">Tip: tap any row in the <b>Today</b> table to open that employee's profile here.</p>
+        <div id="profBody" class="profile-body"><p class="hint">Pick an employee above.</p></div>
+      </div>
+    </section>
+
+    <!-- ============ STEP INDICATOR ============ -->
+    <ol id="stepper" class="stepper">
+      <li data-step="1" class="active"><span class="dot">1</span><span class="lbl">Name</span></li>
+      <li data-step="2"><span class="dot">2</span><span class="lbl">Selfie</span></li>
+      <li data-step="3"><span class="dot">3</span><span class="lbl">Check In / Out</span></li>
+    </ol>
+
+    <!-- ============ STEP 1: NAME ============ -->
+    <section id="step1" class="card step-panel active">
+      <h2>Who's checking in?</h2>
+      <p class="hint">Type your ID or name to search — or pick from the list below.</p>
+      <form id="nameForm" autocomplete="off">
+        <label for="empSearch">Employee</label>
+        <input id="empSearch" type="text" placeholder="🔍 Type ID or name — e.g. ARD5859" autocomplete="off" />
+        <ul id="empList" class="emp-list"></ul>
+        <div id="empPinWrap" class="hidden">
+          <label for="empPin">Security PIN</label>
+          <input id="empPin" type="password" inputmode="numeric" maxlength="6" placeholder="Enter your PIN" />
+        </div>
+        <div id="empPreview" class="emp-preview hidden"></div>
+        <button type="submit" class="btn primary">Continue →</button>
+        <div class="row-3btns">
+          <button type="button" id="btnMyStatus" class="btn ghost">🔎 Check my status</button>
+          <button type="button" id="btnNotif" class="btn ghost hidden">🔔 Turn on reminders</button>
+          <button type="button" id="btnLeave" class="btn ghost">🌿 Apply for leave</button>
+          <button type="button" id="btnMyCsv" class="btn ghost">⬇ My attendance</button>
+        </div>
+        <div id="myStatusBox" class="status-box hidden"></div>
+        <div id="leaveNotice" class="leave-note hidden"></div>
+        <div id="punchReminder" class="leave-note hidden"></div>
+      </form>
+    </section>
+
+    <!-- ============ STEP 2: SELFIE ============ -->
+    <section id="step2" class="card step-panel">
+      <h2>Capture your selfie</h2>
+      <p class="hint" id="selfieFor"></p>
+
+      <div class="camera-area">
+        <div id="camLive" class="cam-frame live hidden">
+          <video id="video" autoplay playsinline muted></video>
+          <div class="face-guide"></div>
+        </div>
+        <div id="camShot" class="cam-frame shot hidden">
+          <img id="snapshot" alt="Your selfie" />
+        </div>
+        <div id="camPlaceholder" class="cam-frame placeholder">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/>
+            <circle cx="12" cy="12" r="3.5"/>
+          </svg>
+          <p id="camMsg">Camera will appear here</p>
+          <button id="startCam" class="btn">📷 Start camera</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnBack1" class="btn ghost">← Back</button>
+        <button id="btnCapture" class="btn primary" disabled>📸 Capture</button>
+        <button id="btnRetake" class="btn ghost hidden">🔄 Retake</button>
+        <button id="btnSelfEnroll" class="btn primary hidden">💾 Enroll my face</button>
+        <button id="btnPush2" class="btn primary hidden">🔔 Turn on reminders</button>
+        <button id="btnNext2" class="btn primary hidden">Continue →</button>
+      </div>
+      <p id="faceStatus" class="face-status"></p>
+      <p class="fallback-note">No camera? <label for="filePick" class="link">Upload a photo instead</label>
+        <input id="filePick" type="file" accept="image/*" capture="user" hidden /></p>
+    </section>
+
+    <!-- ============ STEP 3: CHECK IN / OUT ============ -->
+    <section id="step3" class="card step-panel">
+      <h2>Confirm your attendance</h2>
+      <p class="hint" id="confirmFor"></p>
+
+      <div id="statusBox" class="status-box"></div>
+
+      <div class="choice-grid">
+        <button id="btnCheckIn" class="choice in">
+          <span class="ico">✅</span>
+          <span class="t">Check In</span>
+          <span class="s" id="inHint">Start your shift</span>
+        </button>
+        <button id="btnCheckOut" class="choice out">
+          <span class="ico">🏁</span>
+          <span class="t">Check Out</span>
+          <span class="s" id="outHint">End your shift</span>
+        </button>
+      </div>
+
+      <div class="row">
+        <button id="btnBack2" class="btn ghost">← Back</button>
+      </div>
+      <p class="hint" id="locNote" style="margin-top:10px"><b>📍 Location is mandatory.</b> Allow the browser's location permission (tap <b>Allow</b> once). Every punch records your GPS position — punches cannot be made without it. The status below shows when location is ready.</p>
+      <p class="hint" id="locStatus">⏳ Checking location…</p>
+    </section>
+
+    <!-- ============ DONE ============ -->
+    <section id="done" class="card step-panel">
+      <div class="done-wrap">
+        <div id="doneIcon" class="done-ico">✅</div>
+        <h2 id="doneTitle">Checked in!</h2>
+        <p id="doneMsg" class="hint"></p>
+        <div id="doneSummary" class="done-summary"></div>
+        <button id="btnDone" class="btn primary">Done</button>
+      </div>
+    </section>
+
+    <!-- ============ MY RECORDS (employee: own record only; admin: full day) ============ -->
+    <section id="recordsSection" class="card hidden">
+      <div class="records-head">
+        <h2 id="recordsTitle">My attendance</h2>
+        <div class="row-inline">
+          <button id="btnSwitchMe" class="btn tiny ghost hidden">Not you? Switch</button>
+          <button id="btnClear" class="btn tiny ghost hidden">🗑 Clear all</button>
+        </div>
+      </div>
+      <div id="records" class="records"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">ARDOM · Secure attendance with face verification · v1.0</footer>
+
+  <div id="punchEditModal" class="modal-overlay hidden">
+    <div class="modal card">
+      <h2>✏️ Edit punch</h2>
+      <p class="hint">Admin correction — works for <b>any employee, any date</b>. Audit note (editedBy admin) is written with every save.</p>
+      <form id="punchEditForm" autocomplete="off">
+        <label for="peEmp">Employee</label>
+        <select id="peEmp" required></select>
+        <label for="peDate">Date</label>
+        <input id="peDate" type="date" required />
+        <label for="peIn">Check-in <span class="hint-inline">(e.g. 9:30 or 9:30 AM)</span></label>
+        <input id="peIn" type="text" placeholder="leave as-is if unchanged" />
+        <label for="peOut">Check-out <span class="hint-inline">(blank = still on the clock)</span></label>
+        <input id="peOut" type="text" placeholder="e.g. 6:28 or 6:28 PM" />
+        <p id="peMsg" class="err hidden"></p>
+        <div class="row">
+          <button type="submit" class="btn primary">💾 Save punch</button>
+          <button type="button" id="peCancel" class="btn ghost">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="adminModal" class="modal-overlay hidden">
+    <div class="modal card">
+      <h2>🔐 Admin Login</h2>
+      <p class="hint">Only administrators can clear attendance entries.</p>
+      <form id="adminForm" autocomplete="off">
+        <label for="adminPass">Password</label>
+        <input id="adminPass" type="password" placeholder="Enter admin password" required />
+        <p id="adminErr" class="err hidden">❌ Incorrect password. Try again.</p>
+        <div class="row">
+          <button type="submit" class="btn primary">Login</button>
+          <button type="button" id="adminCancel" class="btn ghost">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
+  <script src="config.js?v=2"></script>
+  <script src="app.js?v=20"></script>
+</body>
+</html>

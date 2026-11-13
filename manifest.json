@@ -1,0 +1,11 @@
+{
+  "name": "ARDOM Attendance",
+  "short_name": "ARDOM",
+  "description": "Face-verified attendance app for ARDOM",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#f58220"
+}
