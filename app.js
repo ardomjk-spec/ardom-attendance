@@ -2579,9 +2579,11 @@ $("btnPunchEdit").addEventListener("click", () => {
   openPunchEdit();
 });
 
-/* ---------------- admin gate ---------------- */
-const ADMIN_PASSWORD = "88250@123"; // ← change this to your own password
-
+/* ---------------- admin gate ----------------
+   NO password is stored in this file (this code is public on GitHub).
+   The typed password is verified BY FIREBASE's servers: it signs the
+   session in as the app's admin/bot email — only the correct password
+   can succeed. Wrong password = Firebase rejects it. */
 let isAdmin = sessionStorage.getItem("ardom_admin") === "1";
 
 function renderAdmin() {
@@ -3072,7 +3074,11 @@ function closeAdminModal() {
    ================================================================ */
 let authElevated = false;
 async function elevateAdmin(pw, silent) {
-  if (authElevated || !db || typeof firebase === "undefined" || !firebase.auth) return true;
+  if (!db || typeof firebase === "undefined" || !firebase.auth) return true;
+  /* trust the ACTUAL session, not a remembered flag — a logout can race an
+     in-flight elevation and leave the flag stale (flag true, user anonymous) */
+  const cur = firebase.auth().currentUser;
+  if (cur && cur.email === ADMIN_BOT_EMAIL) { authElevated = true; return true; }
   try {
     const cred = await firebase.auth().signInWithEmailAndPassword(ADMIN_BOT_EMAIL, pw);
     authElevated = !!(cred && cred.user && cred.user.email);
@@ -3114,17 +3120,25 @@ $("adminModal").addEventListener("click", (e) => {
   if (e.target === $("adminModal")) closeAdminModal();
 });
 
-$("adminForm").addEventListener("submit", (e) => {
+$("adminForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const pw = $("adminPass").value;
-  if (pw === ADMIN_PASSWORD) {
+  const btn = $("adminForm").querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = "⏳ Checking…";
+  /* the REAL password check happens on Firebase's servers — the app code
+     never contains it. Success = the session is signed in as the admin
+     bot account (which also unlocks punch editing immediately). */
+  const ok = await elevateAdmin(pw, true); // Firebase rejects a wrong password — nothing sensitive in the app code
+  btn.disabled = false;
+  btn.textContent = "Login";
+  if (ok) {
     isAdmin = true;
     sessionStorage.setItem("ardom_admin", "1");
     sessionStorage.setItem("ardom_adminpw", pw); // session-only, used to re-elevate after reload
     closeAdminModal();
     renderAdmin();
     showToast("✅ Admin logged in");
-    elevateAdmin(pw); // async — unlocks punch editing when it lands
   } else {
     $("adminErr").classList.remove("hidden");
     $("adminPass").value = "";
