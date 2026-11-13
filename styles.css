@@ -701,3 +701,12 @@ table.sheet-grid { border-collapse: collapse; font-size: .72rem; table-layout: f
   }
   .app-footer { font-size: .68rem; padding: 12px; }
 }
+
+/* ============ admin employees editor ============ */
+.emp-admin-add { flex-wrap: wrap; gap: 8px; }
+.emp-admin-input { flex: 1 1 140px; min-width: 0; padding: 8px 10px; border: 1px solid #e2d5c8; border-radius: 8px; font: inherit; font-size: 0.92em; background: #fff; }
+.emp-admin-input:focus { outline: 2px solid rgba(245,130,32,.35); border-color: #f58220; }
+.emp-admin-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px dashed #efe4d8; }
+.emp-admin-row.off { opacity: .55; background: #faf6f1; }
+.emp-admin-id { flex: 0 0 110px; font-weight: 700; font-size: .9em; color: #7a4a12; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn.mini { padding: 5px 9px; font-size: .85em; line-height: 1; }

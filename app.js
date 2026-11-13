@@ -12,7 +12,7 @@ const LS_KEY = "ardom_attendance_v2";
    pin   -> 4-6 digit code; only that employee can punch under their ID.
             All PINs are currently the default "123" - change them!
 */
-const EMPLOYEES = [
+const BUILTIN_EMPLOYEES = [
   { id: "ARD5685", name: "ABEED UR REHMAN RAFIQI", pin: "" },
   { id: "ARD5841A", name: "ATIF SHOWKAT", pin: "" },
   { id: "ARD5842A", name: "IRFAN ASHRAF BHAT", pin: "" },
@@ -242,6 +242,30 @@ const EMPLOYEES = [
   { id: "JKL-OCT26-01", name: "JATINDER PAL SINGH", pin: "" },
 ];
 
+/* The LIVE roster comes from Firebase (the admin edits it from the console —
+   no code changes needed). The built-in list above is the offline fallback. */
+let EMPLOYEES = BUILTIN_EMPLOYEES.slice();
+
+/* employees hidden from the picker (left the company / typo entry) —
+   deactivated people keep their history but can't punch */
+const activeEmps = () => EMPLOYEES.filter((e) => e.active !== false);
+
+/* re-render every screen that shows the roster after a roster change */
+function refreshEmployeeUI() {
+  try { renderEmpList($("empSearch").value); } catch (e) {}
+  try {
+    if (isAdmin) { renderEnrolledGrid(); renderEmpAdmin(); }
+  } catch (e) {}
+  try { // keep the punch editor + profile dropdowns in sync with new names
+    const sel = $("profEmp");
+    if (sel && sel.options.length) {
+      sel.innerHTML = EMPLOYEES.map((e) => `<option value="${e.id}">${e.id} — ${e.name}</option>`).join("");
+      if (profileEmpID && EMPLOYEES.some((x) => x.id === profileEmpID)) sel.value = profileEmpID;
+      if (profileEmpID) renderProfile();
+    }
+  } catch (e) {}
+}
+
 /* ---------------- state ---------------- */
 let state = {
   empID: "",
@@ -318,6 +342,21 @@ function initSync() {
       }
       listenersBound = true;
       chip.textContent = "🟢 Connecting…";
+
+      /* employee roster — live from Firebase. Replaces the built-in list the
+         moment the node has entries; admin edits apply to EVERYONE instantly. */
+      db.ref("employees").on("value", (snap) => {
+        const val = snap.val();
+        if (val && Object.keys(val).length) {
+          EMPLOYEES = Object.values(val)
+            .filter((e) => e && e.id && e.name)
+            .map((e) => ({ id: e.id, name: e.name, pin: e.pin || "", active: e.active !== false }))
+            .sort((a, b) => a.id.localeCompare(b.id));
+        }
+        window.__fbEmployeesLoaded = true;
+        refreshEmployeeUI();
+      }, () => { window.__fbEmployeesLoaded = true; });
+
       db.ref(dayPath()).on("value", (snap) => {
         state.records = Object.values(snap.val() || {});
         renderRecords();
@@ -982,8 +1021,8 @@ const EMP_LIST_MAX = 80;
 function renderEmpList(filter = "") {
   const f = filter.trim().toLowerCase();
   let matches = [];
-  if (!f) matches = EMPLOYEES.slice();
-  else matches = EMPLOYEES
+  if (!f) matches = activeEmps().slice();
+  else matches = activeEmps()
     .map((e) => ({ e, s: empMatchScore(e, f) }))
     .filter((x) => x.s > 0)
     .sort((a, b) => b.s - a.s || a.e.id.localeCompare(b.e.id))
@@ -1342,7 +1381,7 @@ $("nameForm").addEventListener("submit", (e) => {
   /* allow pasting just the ID directly */
   if (!emp) {
     const typed = $("empSearch").value.trim().toLowerCase();
-    emp = EMPLOYEES.find((x) => x.id.toLowerCase() === typed || x.name.toLowerCase() === typed);
+    emp = activeEmps().find((x) => x.id.toLowerCase() === typed || x.name.toLowerCase() === typed);
     if (!emp) { showToast("Pick yourself from the list first"); return; }
   }
 
@@ -2631,7 +2670,7 @@ function renderAdmin() {
       if (d.getHours() < 10) d.setDate(d.getDate() - 1);
       $("dayCsvDate").value = isoOf(d);
     }
-    renderDash(); renderRecords(); if (db) renderEnrolledGrid(); renderLeaveAdmin(); renderMonthLabel();
+    renderDash(); renderRecords(); if (db) renderEnrolledGrid(); renderLeaveAdmin(); renderMonthLabel(); renderEmpAdmin();
   } else {
     facesCache = null; facesCacheAt = 0; renderRecords(); goTo(1); // logout → employee flow + own-records-only view
   }
@@ -2651,6 +2690,7 @@ function openAdminTab(name) {
   document.querySelectorAll("#adminTabs .atab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   document.querySelectorAll("#dash .atabpane").forEach((p) => p.classList.toggle("active", p.dataset.pane === name));
   renderRecords(); // recordsSection visibility follows the tab
+  if (name === "faces" && isAdmin) renderEmpAdmin(); // roster editor renders on tab open
 }
 $("adminTabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".atab");
@@ -3080,6 +3120,91 @@ async function renderEnrolledGrid() {
   }
   if (!$("dash").classList.contains("hidden")) renderDashTable(dashRows());
 }
+
+/* ======================================================================
+   EMPLOYEES EDITOR (admin) — the roster lives at Firebase "employees".
+   First open seeds it from the built-in list; afterwards every change
+   is a database write that reaches ALL devices instantly.
+   ====================================================================== */
+function renderEmpAdmin() {
+  const box = $("empAdminList");
+  if (!box || !isAdmin) return;
+  /* first run: the database node is empty → save the built-in list once */
+  if (db && window.__fbEmployeesLoaded && !window.__empSeeded) {
+    window.__empSeeded = true;
+    seedEmployeesIfEmpty();
+  }
+  box.innerHTML = EMPLOYEES.map((e) => {
+    const off = e.active === false;
+    return `<div class="emp-admin-row${off ? " off" : ""}" data-emp="${esc(e.id)}">
+      <span class="emp-admin-id">${esc(e.id)}</span>
+      <input class="emp-admin-input" data-ename value="${esc(e.name)}" ${off ? "disabled" : ""} autocomplete="off"/>
+      <button class="btn mini" data-act="save" title="Save new name" ${off ? "disabled" : ""}>💾</button>
+      <button class="btn mini ghost" data-act="toggle" title="${off ? "Reactivate — back in the picker" : "Deactivate — hidden from the picker, history kept"}">${off ? "✅" : "🚫"}</button>
+    </div>`;
+  }).join("") + (EMPLOYEES.length ? "" : `<p class="hint">No employees yet.</p>`);
+}
+
+async function seedEmployeesIfEmpty() {
+  try {
+    const snap = await db.ref("employees").get();
+    if (snap.exists()) return;
+    const obj = {};
+    BUILTIN_EMPLOYEES.forEach((e) => { obj[e.id] = { id: e.id, name: e.name, active: true }; });
+    await db.ref("employees").set(obj);
+    showToast("Employee list saved to the database — future edits are instant");
+  } catch (e) {
+    $("empAdminMsg").textContent = "⚠ Could not save the roster — publish the updated firebase.rules.json (see the rules file).";
+  }
+}
+
+async function empWrite(id, patch, okMsg) {
+  try {
+    await db.ref("employees/" + id).update(patch);
+    showToast(okMsg);
+    $("empAdminMsg").textContent = "";
+  } catch (e) {
+    $("empAdminMsg").textContent = "⚠ Save failed: " + e.message + " — publish the updated firebase.rules.json first.";
+  }
+}
+
+$("btnAddEmp").addEventListener("click", async () => {
+  const id = $("newEmpID").value.trim().toUpperCase();
+  const name = $("newEmpName").value.trim().toUpperCase();
+  if (!/^(ARD|CARD)[0-9]{4}[A-Z]?$/.test(id) && !/^JK[L]?-[A-Z]{3}[0-9]{2}-[0-9]{2}$/.test(id)) {
+    $("empAdminMsg").textContent = "⚠ ID must look like ARD5999A / CARD5999A / JK-SEP26-01 — fix it and try again.";
+    return;
+  }
+  if (!name) { $("empAdminMsg").textContent = "⚠ Type the employee's full name."; return; }
+  if (EMPLOYEES.some((e) => e.id === id)) { $("empAdminMsg").textContent = "⚠ That ID already exists."; return; }
+  try {
+    await db.ref("employees/" + id).set({ id, name, active: true });
+    showToast("✅ " + name + " added");
+    $("newEmpID").value = ""; $("newEmpName").value = "";
+    $("empAdminMsg").textContent = "";
+  } catch (e) {
+    $("empAdminMsg").textContent = "⚠ Add failed: " + e.message + " — publish the updated firebase.rules.json first.";
+  }
+});
+
+$("empAdminList").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const row = btn.closest(".emp-admin-row");
+  const id = row.dataset.emp;
+  const emp = EMPLOYEES.find((x) => x.id === id);
+  if (!emp) return;
+  if (btn.dataset.act === "save") {
+    const name = row.querySelector("[data-ename]").value.trim().toUpperCase();
+    if (!name) { showToast("Name can't be empty"); return; }
+    if (name === emp.name) { showToast("Name unchanged"); return; }
+    empWrite(id, { name }, "✏️ " + id + " renamed to " + name);
+  } else {
+    const off = emp.active === false;
+    empWrite(id, { active: off ? true : false },
+      off ? "✅ " + id + " reactivated" : "🚫 " + id + " deactivated — hidden from the picker, history kept");
+  }
+});
 
 /* tap the "Faces enrolled" tile → open the Faces & tools tab at the enrollment box */
 $("tileEnroll").addEventListener("click", () => {

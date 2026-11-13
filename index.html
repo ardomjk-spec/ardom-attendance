@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="ARDOM Attendance" />
   <meta name="theme-color" content="#f58220" />
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <header class="app-header">
@@ -151,6 +151,19 @@
           <p class="fallback-note">No camera? <label for="enFile" class="link">Upload a photo instead</label>
             <input id="enFile" type="file" accept="image/*" hidden /></p>
           <div id="enrolledGrid" class="enrolled-grid"></div>
+        </div>
+
+        <!-- ── employees editor — add / rename / deactivate (admin) ── -->
+        <div id="empAdmin" class="enroll-box">
+          <h3>👥 Employees — add, rename, deactivate</h3>
+          <p class="hint">The roster lives in the database, so changes go live for everyone instantly — no app update needed. <b>Rename</b> is safe anytime. For someone leaving, use <b>Deactivate</b> (keeps their history). Only delete a mistyped ID.</p>
+          <div class="row emp-admin-add">
+            <input id="newEmpID" class="emp-admin-input" placeholder="New ID e.g. ARD6001A" autocomplete="off" />
+            <input id="newEmpName" class="emp-admin-input" placeholder="Full name" autocomplete="off" />
+            <button id="btnAddEmp" class="btn primary" type="button">＋ Add</button>
+          </div>
+          <p id="empAdminMsg" class="hint"></p>
+          <div id="empAdminList"></div>
         </div>
       </div>
 
@@ -334,6 +347,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
   <script src="config.js?v=3"></script>
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>
