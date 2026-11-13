@@ -1460,6 +1460,7 @@ async function startCamera() {
     $("camPlaceholder").classList.add("hidden");
     $("camLive").classList.remove("hidden");
     $("btnCapture").disabled = false;
+    $("btnCapture").classList.remove("hidden"); // BUGFIX: was left hidden after the upload-only change — camera opened with no way to capture
   } catch (err) {
     $("camMsg").textContent =
       "Camera unavailable — upload a photo below instead, or tap “📷 Start camera” to retry.";
