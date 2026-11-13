@@ -24,3 +24,8 @@ const FIREBASE_CONFIG = {
    password, the session ALSO signs in with this account (same password).
    The Firebase rules let ONLY this account change past check-in times. */
 const ADMIN_BOT_EMAIL = "ardom-bot@ardom-app.local";
+
+/* App Check (anti-bot shield): paste your reCAPTCHA v3 SITE KEY here after
+   registering App Check in the Firebase console (steps provided by the dev).
+   Left empty → App Check stays off and the app works exactly as now. */
+const RECAPTCHA_SITE_KEY = "";

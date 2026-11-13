@@ -288,6 +288,16 @@ function initSync() {
   try {
     firebase.initializeApp(cfg);
     db = firebase.database();
+
+    /* App Check — anti-bot shield (monitor mode until you flip Enforced in
+       the console). Only activates when RECAPTCHA_SITE_KEY is filled in
+       config.js; empty key → app works exactly as before. */
+    try {
+      if (typeof RECAPTCHA_SITE_KEY !== "undefined" && RECAPTCHA_SITE_KEY && firebase.appCheck) {
+        firebase.appCheck().activate(RECAPTCHA_SITE_KEY, false);
+      }
+    } catch (acErr) { console.warn("App Check:", acErr.message); }
+
     chip.textContent = "🟢 Signing in…";
 
     /* anonymous sign-in → every real employee session gets a token the
