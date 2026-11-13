@@ -502,7 +502,7 @@ function renderLeaveNotice(live) {
       if (leaf.status === "rejected") {
         key = `${state.me.empID}|rejected`;
         cls = "bad";
-        html = `❌ <b>${state.me.name}</b> — the admin <b>rejected your leave request</b>. <b>You are ABSENT today</b> (${leaf.type} pending was denied). Contact your admin.`;
+        html = `❌ <b>${esc(state.me.name)}</b> — the admin <b>rejected your leave request</b>. <b>You are ABSENT today</b> (${esc(leaf.type)} pending was denied). Contact your admin.`;
       } else if (leaf.status === "pending") {
         key = `${state.me.empID}|pending`;
         cls = "warn";
@@ -514,7 +514,7 @@ function renderLeaveNotice(live) {
       } else if (!workingNow) {
         key = `${state.me.empID}|granted`;
         cls = "good";
-        html = `🌿 <b>${state.me.name}</b> — you are <b>ON LEAVE today</b> (${leaf.type}).<br><button type="button" id="btnReopenReq" class="btn tiny ghost">🌅 I came to work today — ask admin to reopen check-in</button>`;
+        html = `🌿 <b>${esc(state.me.name)}</b> — you are <b>ON LEAVE today</b> (${esc(leaf.type)}).<br><button type="button" id="btnReopenReq" class="btn tiny ghost">🌅 I came to work today — ask admin to reopen check-in</button>`;
       }
     }
   }
@@ -578,11 +578,11 @@ async function renderLeaveAdmin() {
         const used = monthLeavesUsed(leaves, empID);
         const worked = iso === today && recordForToday(empID) ? " · ⚠ already punched in that day" : "";
         return `<div class="leave-row pending">
-          <div><b>${empID}</b> — ${emp ? emp.name : (v.name || "?")} · <b>${iso}</b> (PL)<br>
-          <small>CL used this month: ${used}/${MONTHLY_CL_LIMIT}${worked}</small></div>
+          <div><b>${esc(empID)}</b> — ${emp ? esc(emp.name) : esc(v.name || "?")} · <b>${esc(iso)}</b> (PL)<br>
+          <small>CL used this month: ${esc(used)}/${MONTHLY_CL_LIMIT}${esc(worked)}</small></div>
           <div class="row">
-            <button class="btn tiny primary" data-ok="${empID}|${iso}">✔ Approve</button>
-            <button class="btn tiny danger" data-no="${empID}|${iso}">✖ Reject</button>
+            <button class="btn tiny primary" data-ok="${esc(empID)}|${esc(iso)}">✔ Approve</button>
+            <button class="btn tiny danger" data-no="${esc(empID)}|${esc(iso)}">✖ Reject</button>
           </div>
         </div>`;
       }).join("")
@@ -601,7 +601,7 @@ async function renderLeaveAdmin() {
              </div>`
           : `<div class="row"><button class="btn tiny ghost" data-cancel="${empID}|${iso}">➖ Cancel leave</button></div>`;
         return `<div class="leave-row ${v.reopenReq ? "pending" : "granted"}">
-          <div>🌿 <b>${empID}</b> — ${emp ? emp.name : (v.name || "?")} is <b>ON LEAVE today</b> (${v.type})${v.reopenReq ? `<br><small>requested at ${new Date(v.reopenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>` : ""}<br>${asking}</div>
+          <div>🌿 <b>${esc(empID)}</b> — ${emp ? esc(emp.name) : esc(v.name || "?")} is <b>ON LEAVE today</b> (${esc(v.type)})${v.reopenReq ? `<br><small>requested at ${esc(new Date(v.reopenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</small>` : ""}<br>${asking}</div>
           ${btns}
         </div>`;
       }).join("")
@@ -859,6 +859,19 @@ function timeNow() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
 }
 function empOf(id) { return EMPLOYEES.find((e) => e.id === id); }
+
+/* ================================================================
+   XSS SHIELD — everything that comes from the DATABASE (names, times,
+   leave types, photos…) is attacker-writable in theory, so it MUST pass
+   through esc() before landing in innerHTML. A fake "name" saved by a
+   stranger then can never become executable HTML in anyone's browser —
+   including the admin's.
+   ================================================================ */
+function esc(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 /* a record voided by the admin ("converted to leave") is invisible in every
    place that treats it as presence — the leave entry itself replaces it */
 function isVoided(r) { return r && r.voided === true; }
@@ -1026,19 +1039,19 @@ function renderMyStatus() {
       box.className = "status-box warn";
       return;
     }
-    box.innerHTML = `🌿 <b>${emp.id} · ${emp.name}</b> — ON LEAVE today (${leaf.type}). No punch needed.`;
+    box.innerHTML = `🌿 <b>${esc(emp.id)} · ${esc(emp.name)}</b> — ON LEAVE today (${esc(leaf.type)}). No punch needed.`;
     box.className = "status-box good";
     return;
   }
   const rec = recordForToday(emp.id);
   if (!rec) {
-    box.innerHTML = `🟡 <b>${emp.id} · ${emp.name}</b> — <b>not checked in</b> yet today.`;
+    box.innerHTML = `🟡 <b>${esc(emp.id)} · ${esc(emp.name)}</b> — <b>not checked in</b> yet today.`;
     box.className = "status-box warn";
   } else if (!rec.checkOut) {
-    box.innerHTML = `🟢 <b>${emp.id} · ${emp.name}</b> — still marked <b>AT WORK</b> since <b>${rec.checkIn}</b>. ⏱ ${workedDuration(rec).replace("Working for ", "").replace(" so far", "")} — don't forget to CHECK OUT before leaving!`;
+    box.innerHTML = `🟢 <b>${esc(emp.id)} · ${esc(emp.name)}</b> — still marked <b>AT WORK</b> since <b>${esc(rec.checkIn)}</b>. ⏱ ${esc(workedDuration(rec).replace("Working for ", "").replace(" so far", ""))} — don't forget to CHECK OUT before leaving!`;
     box.className = "status-box good";
   } else {
-    box.innerHTML = `🏁 <b>${emp.id} · ${emp.name}</b> — done for today. In <b>${rec.checkIn}</b> · Out <b>${rec.checkOut}</b> · ⏱ ${workedDuration(rec)}`;
+    box.innerHTML = `🏁 <b>${esc(emp.id)} · ${esc(emp.name)}</b> — done for today. In <b>${esc(rec.checkIn)}</b> · Out <b>${esc(rec.checkOut)}</b> · ⏱ ${esc(workedDuration(rec))}`;
     box.className = "status-box";
   }
 }
@@ -1553,7 +1566,7 @@ async function renderStep3() {
 
   /* approved leave (and no punch yet) → check-in/out are turned off */
   if (!rec && leafToday && leafToday.status === "granted") {
-    box.innerHTML = `<span>🌿</span><span><b>${state.name}</b> is <b>ON LEAVE today</b> (${leafToday.type}). Check-in is disabled. If you actually came to work, tap the <b>“🌅 I came to work today”</b> button on the home screen — once the admin approves it, this screen unlocks.`;
+    box.innerHTML = `<span>🌿</span><span><b>${esc(state.name)}</b> is <b>ON LEAVE today</b> (${esc(leafToday.type)}). Check-in is disabled. If you actually came to work, tap the <b>“🌅 I came to work today”</b> button on the home screen — once the admin approves it, this screen unlocks.`;
     btnIn.disabled = true;
     $("inHint").textContent = "🌿 On leave — check-in disabled";
     $("outHint").textContent = "🌿 On leave";
@@ -1570,14 +1583,14 @@ async function renderStep3() {
     btnIn.disabled = false;
   } else if (!rec.checkOut) {
     // locked: only checkout possible
-    box.innerHTML = `<span>🟢</span><span><b>${state.name}</b> is checked in since <b>${rec.checkIn}</b> at <b>${fmtLoc(rec.inLoc)}</b>. You can only check out now.</span>`;
+    box.innerHTML = `<span>🟢</span><span><b>${esc(state.name)}</b> is checked in since <b>${esc(rec.checkIn)}</b> at <b>${esc(fmtLoc(rec.inLoc))}</b>. You can only check out now.</span>`;
     btnIn.disabled = true;
     $("inHint").textContent = "🔒 Already checked in today";
     btnOut.disabled = false;
     $("outHint").textContent = "Currently: checked in";
   } else {
     // fully done for the day
-    box.innerHTML = `<span>🏁</span><span><b>${state.name}</b> completed today: in <b>${rec.checkIn}</b> · out <b>${rec.checkOut}</b>. Attendance is locked until tomorrow.</span>`;
+    box.innerHTML = `<span>🏁</span><span><b>${esc(state.name)}</b> completed today: in <b>${esc(rec.checkIn)}</b> · out <b>${esc(rec.checkOut)}</b>. Attendance is locked until tomorrow.</span>`;
     $("inHint").textContent = "🔒 Completed today";
     $("outHint").textContent = "🔒 Completed today";
   }
@@ -1675,12 +1688,12 @@ function finish(icon, title, msg, t) {
   $("doneTitle").textContent = title;
   $("doneMsg").textContent = msg;
   $("doneSummary").innerHTML = `
-    <div>🆔 <b>${state.empID}</b> — ${state.name}</div>
-    <div>📅 ${new Date().toLocaleDateString()}</div>
-    <div>🟢 Check-in: <b>${t.checkIn ?? "—"}</b></div>
-    <div class="loc">📍 ${t.inLoc ? `at <a href="${mapLink(t.inLoc)}" target="_blank" rel="noopener">${fmtLoc(t.inLoc)}</a>` : "location unavailable"}</div>
-    <div>🏁 Check-out: <b>${t.checkOut ?? "—"}</b></div>
-    <div class="loc">📍 ${t.outLoc ? `at <a href="${mapLink(t.outLoc)}" target="_blank" rel="noopener">${fmtLoc(t.outLoc)}</a>` : "location unavailable"}</div>`;
+    <div>🆔 <b>${esc(state.empID)}</b> — ${esc(state.name)}</div>
+    <div>📅 ${esc(new Date().toLocaleDateString())}</div>
+    <div>🟢 Check-in: <b>${esc(t.checkIn ?? "—")}</b></div>
+    <div class="loc">📍 ${t.inLoc ? `at <a href="${mapLink(t.inLoc)}" target="_blank" rel="noopener">${esc(fmtLoc(t.inLoc))}</a>` : "location unavailable"}</div>
+    <div>🏁 Check-out: <b>${esc(t.checkOut ?? "—")}</b></div>
+    <div class="loc">📍 ${t.outLoc ? `at <a href="${mapLink(t.outLoc)}" target="_blank" rel="noopener">${esc(fmtLoc(t.outLoc))}</a>` : "location unavailable"}</div>`;
   renderRecords();
   goTo(4);
 }
@@ -1737,18 +1750,18 @@ function recordCard(r, adminView) {
   const badge = r.checkOut ? `<span class="badge out">✔ DONE</span>` : `<span class="badge in">● AT WORK</span>`;
   const locTxt = r.outLoc ? fmtLoc(r.outLoc) : r.inLoc ? fmtLoc(r.inLoc) : null;
   const locHtml = locTxt
-    ? `<div class="t">📍 <a href="${mapLink(r.outLoc || r.inLoc)}" target="_blank" rel="noopener">${locTxt}</a></div>`
+    ? `<div class="t">📍 <a href="${mapLink(r.outLoc || r.inLoc)}" target="_blank" rel="noopener">${esc(locTxt)}</a></div>`
     : "";
   const voidBtn = adminView
-    ? `<div class="row"><button class="btn tiny ghost" data-editpunch="${r.empID}">✏️ Edit times</button><button class="btn tiny ghost" data-voidle="${r.empID}">🌿 Convert today's punch to LEAVE</button></div>`
+    ? `<div class="row"><button class="btn tiny ghost" data-editpunch="${esc(r.empID)}">✏️ Edit times</button><button class="btn tiny ghost" data-voidle="${esc(r.empID)}">🌿 Convert today's punch to LEAVE</button></div>`
     : "";
   return `<div class="record">
-    <img src="${r.selfie || ""}" alt="selfie of ${r.name}" />
-    <div class="info"><div class="name">${r.empID} · ${r.name}</div>
-    <div class="t">🟢 Check-in: <b>${r.checkIn ?? "—"}</b></div>
-    <div class="t">🏁 Check-out: <b>${r.checkOut ?? "still on the clock…"}</b></div>
-    <div class="t">⏱ ${worked}</div>${locHtml}${voidBtn}</div>
-    <div class="col-badge">${r.verify && r.verify.kind === "ok" ? '<span class="verified">👤 ✓</span>' : r.verify && r.verify.kind === "unenrolled" ? '<span class="verified" style="color:#b45309">👤 ⏳</span>' : ""}${badge}${adminView && r.editedBy ? `<span class="badge edited" title="Times edited by admin · ${r.editedAt || ""}">✏️ edited</span>` : ""}</div>
+    <img src="${esc(r.selfie || "")}" alt="selfie of ${esc(r.name)}" />
+    <div class="info"><div class="name">${esc(r.empID)} · ${esc(r.name)}</div>
+    <div class="t">🟢 Check-in: <b>${esc(r.checkIn ?? "—")}</b></div>
+    <div class="t">🏁 Check-out: <b>${esc(r.checkOut ?? "still on the clock…")}</b></div>
+    <div class="t">⏱ ${esc(worked)}</div>${locHtml}${voidBtn}</div>
+    <div class="col-badge">${r.verify && r.verify.kind === "ok" ? '<span class="verified">👤 ✓</span>' : r.verify && r.verify.kind === "unenrolled" ? '<span class="verified" style="color:#b45309">👤 ⏳</span>' : ""}${badge}${adminView && r.editedBy ? `<span class="badge edited" title="Times edited by admin · ${esc(r.editedAt || "")}">✏️ edited</span>` : ""}</div>
   </div>`;
 }
 
@@ -2083,7 +2096,7 @@ async function renderPunchReminders() {
     const evening = hour >= 18;
     const longShift = workedMin != null && workedMin >= 8 * 60;
     if (evening || longShift) {
-      lines.push(`⚠ <b>Don't forget to CHECK OUT — today (${humanDay(0)})!</b> You checked in at ${rec.checkIn} and are still marked at work${evening ? " (it's evening)" : ""}. Check out before leaving.`);
+      lines.push(`⚠ <b>Don't forget to CHECK OUT — today (${humanDay(0)})!</b> You checked in at ${esc(rec.checkIn)} and are still marked at work${evening ? " (it's evening)" : ""}. Check out before leaving.`);
     }
   }
 
@@ -2141,7 +2154,13 @@ $("btnClear").addEventListener("click", () => {
    Month: every day of the picked month for all employees (history + leaves) */
 
 function csvDownload(rows, filename) {
-  const csv = rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  /* formula-injection guard: a cell starting with = + - @ could execute as a
+     formula when the CSV is opened in Excel — neutralize by prefixing with ' */
+  const safe = (c) => {
+    const s = String(c ?? "");
+    return /^[=+\-@]/.test(s) ? "'" + s : s;
+  };
+  const csv = rows.map((r) => r.map((c) => `"${safe(c).replace(/"/g, '""')}"`).join(",")).join("\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   a.download = filename;
@@ -2469,7 +2488,7 @@ async function renderSheetView() {
         /* absent past/today cells (blank or UA, not Sundays) open the punch editor prefilled */
         const d = model.dates[i];
         const addable = d <= model.today && (c.code === "" || c.code === "UA");
-        html += `<td class="day ${c.cls}${addable ? " addable" : ""}" title="${addable ? "Absent — tap to add this punch" : (c.tip || "")}"${addable ? ` data-addpunch="${row.emp.id}" data-pdate="${c.iso}"` : ""}>${c.code}</td>`;
+        html += `<td class="day ${c.cls}${addable ? " addable" : ""}" title="${esc(addable ? "Absent — tap to add this punch" : (c.tip || ""))}"${addable ? ` data-addpunch="${esc(row.emp.id)}" data-pdate="${esc(c.iso)}"` : ""}>${esc(c.code)}</td>`;
       });
       SHEET_TOTALS.forEach((t) => { html += `<td class="tt">${row.totals[t.key]}</td>`; });
       html += `</tr>`;
@@ -2719,12 +2738,12 @@ function renderDashTable(rows) {
   $("dashTable").querySelector("thead").innerHTML =
     `<tr><th>Emp ID</th><th>Name</th><th>Face</th><th>Check-in</th><th>Check-out</th><th>Location</th><th>Status</th></tr>`;
   $("dashTable").querySelector("tbody").innerHTML = filtered.map((r) => `
-    <tr data-prof="${r.emp.id}" title="Tap to open ${r.emp.name}'s profile">
-      <td>${r.emp.id}</td>
-      <td>${r.emp.name}</td>
+    <tr data-prof="${esc(r.emp.id)}" title="Tap to open ${esc(r.emp.name)}'s profile">
+      <td>${esc(r.emp.id)}</td>
+      <td>${esc(r.emp.name)}</td>
       <td>${faceCell(r)}</td>
-      <td>${(r.rec && r.rec.checkIn) || "—"}</td>
-      <td>${(r.rec && r.rec.checkOut) || "—"}</td>
+      <td>${esc((r.rec && r.rec.checkIn) || "—")}</td>
+      <td>${esc((r.rec && r.rec.checkOut) || "—")}</td>
       <td>${locCell(r)}</td>
       <td>${badge(r.status)}${r.rec && r.rec.editedBy ? `<span class="badge edited" title="Times edited by admin — audit note saved">✏️ edited</span>` : ""}</td>
     </tr>`).join("") || `<tr><td colspan="7" class="empty">${dashFilter === "enNot" ? "✓ Every enrolled employee has checked in today." : dashFilter === "enIn" ? "No enrolled employee has checked in yet today." : "No match."}</td></tr>`;
@@ -2811,8 +2830,8 @@ async function renderProfile() {
       else if (past) { status = "— absent"; cls = "ua"; }
       if (!status) continue; // future day, nothing marked
       const edited = h && h.editedBy
-        ? `<span class="badge edited" title="Edited by admin · ${h.editedAt || ""}">✏️</span>` : "";
-      rows += `<tr><td>${d.getDate()} ${d.toLocaleDateString([], { weekday: "short" })}</td><td>${status}${edited}</td></tr>`;
+        ? `<span class="badge edited" title="Edited by admin · ${esc(h.editedAt || "")}">✏️</span>` : "";
+      rows += `<tr><td>${esc(`${d.getDate()} ${d.toLocaleDateString([], { weekday: "short" })}`)}</td><td>${esc(status)}${edited}</td></tr>`;
     }
 
     body.innerHTML = `
@@ -3041,7 +3060,7 @@ async function renderEnrolledGrid() {
     (entries.length
       ? entries.map(([id, f]) => {
           const emp = EMPLOYEES.find((x) => x.id === id);
-          return `<div class="enrolled-card"><img src="${f.photo || ""}" alt="${id}"/><span>${id}${emp ? "<br>" + emp.name.split(" ")[0] : ""}</span></div>`;
+          return `<div class="enrolled-card"><img src="${esc(f.photo || "")}" alt="${esc(id)}"/><span>${esc(id)}${emp ? "<br>" + esc(emp.name.split(" ")[0]) : ""}</span></div>`;
         }).join("")
       : "");
   /* keep the dashboard Face column + the mandatory tiles row in sync */
