@@ -1400,7 +1400,7 @@ $("nameForm").addEventListener("submit", (e) => {
   askNotificationPermission(); // one-time: allow browser reminders even in background
 
   $("selfieFor").textContent =
-    `${emp.name} (${emp.id}) — choose a clear photo of your face; it's attached to this record.`;
+    `${emp.name} (${emp.id}) — use the camera or pick a photo; it's attached to this record.`;
   resetCamera();
   goTo(2);
   /* employees UPLOAD a photo — the camera is not used in the employee flow */
@@ -1417,13 +1417,13 @@ function resetCamera() {
   $("camLive").classList.add("hidden");
   $("camShot").classList.add("hidden");
   $("camPlaceholder").classList.remove("hidden");
-  $("camMsg").textContent = "Choose a clear photo of your face";
+  $("camMsg").textContent = "Use the camera or choose a photo";
   $("btnCapture").disabled = true;
-  $("btnCapture").classList.add("hidden"); // upload-only flow — never shown
+  $("btnCapture").classList.add("hidden");
   $("btnRetake").classList.add("hidden");
   $("btnNext2").classList.add("hidden");
   $("btnSelfEnroll").classList.add("hidden");
-  $("startCam").classList.add("hidden"); // camera UI retired for employees
+  $("startCam").classList.remove("hidden"); // camera + upload BOTH offered
 }
 
 function stopStream() {
@@ -1580,8 +1580,7 @@ function flagMismatchUnknown() {
 }
 
 $("btnRetake").addEventListener("click", () => {
-  resetCamera();
-  $("filePick").click(); // no camera — go straight back to the photo picker
+  resetCamera(); // back to the choice screen: camera OR upload
 });
 
 $("btnNext2").addEventListener("click", () => {
