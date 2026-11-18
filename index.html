@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="ARDOM Attendance" />
   <meta name="theme-color" content="#f58220" />
-  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
   <header class="app-header">
@@ -317,6 +317,7 @@
         <input id="peOut" type="text" placeholder="e.g. 6:28 or 6:28 PM" />
         <p id="peMsg" class="err hidden"></p>
         <div class="row">
+          <button type="button" id="peAbsentBtn" class="btn ghost hidden">🚩 Mark Absent</button>
           <button type="submit" class="btn primary">💾 Save punch</button>
           <button type="button" id="peCancel" class="btn ghost">Cancel</button>
         </div>
@@ -348,6 +349,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
   <script src="config.js?v=3"></script>
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=31"></script>
 </body>
 </html>

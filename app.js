@@ -1962,6 +1962,15 @@ function openPunchEdit(empID, dateISO) {
     if (rec) { $("peIn").value = rec.checkIn || ""; $("peOut").value = rec.checkOut || ""; }
   }
   $("peIn").focus();
+  /* NEW: if the record is already present (self-check-in) AND today, show the Mark Absent button */
+  const rec = recordForToday(empID);
+  if (rec && rec.checkIn && rec.checkOut === null && dateISO === dayKeyISO()) {
+    $("peAbsentBtn").classList.remove("hidden");
+    $("peAbsentBtn").dataset.emp = empID;
+    $("peAbsentBtn").dataset.date = dateISO;
+  } else {
+    $("peAbsentBtn").classList.add("hidden");
+  }
 }
 $("peCancel").addEventListener("click", () => $("punchEditModal").classList.add("hidden"));
 $("punchEditModal").addEventListener("click", (e) => {
@@ -1974,6 +1983,45 @@ $("punchEditForm").addEventListener("submit", async (e) => {
   const emp = empOf(empID);
   const dateISO = $("peDate").value;
   if (!dateISO) { peErr("Pick a date"); return; }
+  const isAbsent = $("peAbsentBtn").classList.contains("hidden") ? false : true;
+  if (isAbsent) {
+    /* --- MARK ABSENT ---
+       Admin overrides the employee's self-check-in and marks them absent for the day.
+       We void the attendance record and write an absent flag. */
+    const confirmMsg = `Mark ${emp ? emp.name : empID} as ABSENT for ${$("peDate").value}?\n\nThis overrides their self-check-in. The punch entry is voided and an audit note is written.`;
+    if (!confirm(confirmMsg)) return;
+    const stamp = new Date().toISOString();
+    const path = dateISO === dayKeyISO() ? dayPath() : `attendance/${dateISO}`;
+    if (db) {
+      await db.ref(`${path}/${empID}`).update({
+        voided: true, voidReason: "marked absent by admin", editedBy: "admin", editedAt: stamp
+      });
+      /* also write a leave record of type AB (absent) so the day shows correctly in sheets */
+      await db.ref(`leaves/${empID}/${dayKeyISO()}`).set({
+        type: "AB", status: "granted", by: "admin", name: emp ? emp.name : empID,
+        note: "marked absent by admin (overrode self-check-in)",
+        decidedBy: "admin", decidedAt: new Date().toISOString(),
+      });
+      /* history mirror */
+      const histPath = `history/${empID}/${dateISO}`;
+      await db.ref(histPath).set({ empID, name: emp ? emp.name : empID, checkIn: null, checkOut: null, voided: true, editedBy: "admin", editedAt: stamp });
+    } else {
+      /* local mode */
+      let local = state.records.find((r) => r.empID === empID && r.date === dateISO);
+      if (!local) {
+        local = { date: new Date(dateISO + "T00:00:00").toDateString(), empID, name: emp ? emp.name : empID, checkIn: null, checkOut: null };
+        local.dateKeyISO = dateISO;
+        state.records.push(local);
+      }
+      local.voided = true; local.voidReason = "marked absent by admin"; local.editedBy = "admin"; local.editedAt = stamp;
+    }
+    leavesCache = null; leavesCacheAt = 0;
+    $("punchEditModal").classList.add("hidden");
+    showToast(`🚩 ${emp ? emp.name : empID} marked ABSENT for ${$("peDate").value} (admin override)`);
+    renderRecords();
+    return; // important: skip the normal punch-save flow below
+  }
+
   const newIn = normClock($("peIn").value);
   const newOut = normClock($("peOut").value);
   if ($("peIn").value.trim() && !newIn) { peErr(`Can't read the check-in time "${$("peIn").value}" — try 9:30 or 9:30 AM`); return; }
